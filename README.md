@@ -66,6 +66,12 @@ pnpm build
 
 The test suite covers identity matching, the complete multi-turn return flow, confirmation gating, duplicate-action protection, tool failure, and prompt-injection handling.
 
+## Interview deliverables
+
+- `deliverables/Bookly_Support_Case_Study_FINAL.pptx` — five-slide case-study deck with speaker notes.
+- `deliverables/DEMO_SCRIPT.md` — timed walkthrough, safety proof, and closing narrative.
+- `deliverables/SUBMISSION_CHECKLIST.md` — sharing and submission checks.
+
 ## Prototype tradeoffs
 
 - Synthetic in-memory data keeps the evaluation path safe and reproducible, but production would use authenticated order and returns APIs.
