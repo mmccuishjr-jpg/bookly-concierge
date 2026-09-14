@@ -30,6 +30,9 @@ export function checkReturnEligibility(orderId: string, itemId: string): ToolRes
   const order = getOrder(orderId);
   const item = order?.items.find((candidate) => candidate.id === itemId);
   if (!order || !item) return { ok: false, code: 'not_found', message: 'The item could not be found.' };
+  if (order.status !== 'delivered') {
+    return { ok: false, code: 'ineligible', message: 'Returns can only be started after delivery.' };
+  }
   if (!item.returnable) return { ok: false, code: 'ineligible', message: 'This item is outside the return window.' };
   return { ok: true, data: { eligible: true, itemId } };
 }

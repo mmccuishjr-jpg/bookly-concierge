@@ -40,7 +40,7 @@ function OrderCard({ card }: { card: Extract<ContentCard, { kind: 'order' }> }) 
     <div className="result-card mt-3" aria-label={`Order ${order.id} details`}>
       <div className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-3.5">
         <div><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Order {order.id}</p><p className="mt-1 text-sm font-semibold">{order.statusLabel}</p></div>
-        <Badge className="rounded-full bg-[#e8f3e9] px-2.5 text-[#2f6a3c] hover:bg-[#e8f3e9]"><Truck className="size-3" /> On schedule</Badge>
+        <Badge className="rounded-full bg-[#e8f3e9] px-2.5 text-[#2f6a3c] hover:bg-[#e8f3e9]"><Truck className="size-3" /> {order.status === 'delivered' ? 'Delivered' : 'On schedule'}</Badge>
       </div>
       <div className="p-4">
         <div className="mb-5 grid grid-cols-3 gap-2" aria-label="Order progress">
@@ -49,7 +49,7 @@ function OrderCard({ card }: { card: Extract<ContentCard, { kind: 'order' }> }) 
           ))}
         </div>
         <div className="flex items-start justify-between gap-4 rounded-xl bg-[#f6f2eb] px-3.5 py-3">
-          <div className="flex items-start gap-2.5"><Clock3 className="mt-0.5 size-4 text-primary" /><div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Expected delivery</p><p className="mt-1 text-sm font-semibold">{order.eta ?? order.deliveredAt}</p></div></div>
+          <div className="flex items-start gap-2.5"><Clock3 className="mt-0.5 size-4 text-primary" /><div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{order.status === 'delivered' ? 'Delivered' : 'Expected delivery'}</p><p className="mt-1 text-sm font-semibold">{order.eta ?? order.deliveredAt}</p></div></div>
           <span className="text-right text-[11px] text-muted-foreground">{order.carrier}<br />•••• {order.trackingSuffix}</span>
         </div>
         <div className="mt-3 space-y-2">

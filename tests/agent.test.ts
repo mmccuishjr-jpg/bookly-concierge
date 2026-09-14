@@ -45,6 +45,11 @@ void test('duplicate write actions are idempotently blocked', () => {
   if (!duplicate.ok) assert.equal(duplicate.code, 'duplicate');
 });
 
+void test('return eligibility is grounded in delivery state', () => {
+  const valid = createReturn('B-1042', 'BK-201', 'Changed mind', []);
+  assert.equal(valid.ok, true);
+});
+
 void test('tool failure fails closed without inventing status', () => {
   const awaiting = runDemoAgent({ message: 'Track my order', state: emptyState() });
   const failed = runDemoAgent({ message: 'B-5000 michael@example.com', state: awaiting.state });

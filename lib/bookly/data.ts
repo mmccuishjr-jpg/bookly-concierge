@@ -4,10 +4,10 @@ export const orders: Order[] = [
   {
     id: 'B-1042',
     email: 'michael@example.com',
-    status: 'in_transit',
-    statusLabel: 'In transit',
+    status: 'delivered',
+    statusLabel: 'Delivered',
     placedAt: 'September 8',
-    eta: 'Tuesday, September 15 · 2–6 PM',
+    deliveredAt: 'September 12 · Front desk',
     carrier: 'UPS',
     trackingSuffix: '4821',
     items: [

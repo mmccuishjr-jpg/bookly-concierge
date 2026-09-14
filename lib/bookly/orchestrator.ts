@@ -1,5 +1,5 @@
 import { checkReturnEligibility, createReturn, findOrder, getOrder, getPolicy } from './tools.ts';
-import type { ChatRequest, ChatResponse, SessionState, TraceEvent } from './types.ts';
+import type { ChatRequest, ChatResponse, Order, SessionState, TraceEvent } from './types.ts';
 
 const makeId = () => crypto.randomUUID();
 const trace = (
@@ -43,6 +43,12 @@ function selectedItem(text: string, state: SessionState) {
   if (lower.includes('second') || lower.includes('2nd')) return order.items[1];
   if (lower.includes('first') || lower.includes('1st')) return order.items[0];
   return order.items.find((item) => lower.includes(item.title.toLowerCase().slice(0, 12)));
+}
+
+function orderStatusCopy(order: Order) {
+  if (order.status === 'delivered') return `was delivered ${order.deliveredAt ?? 'successfully'}`;
+  if (order.status === 'processing') return 'is being prepared for shipment';
+  return `is ${order.statusLabel.toLowerCase()}${order.eta ? ` and expected ${order.eta}` : ''}`;
 }
 
 export function runDemoAgent(request: ChatRequest): ChatResponse {
@@ -158,7 +164,7 @@ export function runDemoAgent(request: ChatRequest): ChatResponse {
       return answer(result.data.items.length > 1 ? `I found order ${result.data.id} with two books. Which one would you like to return — “${result.data.items[0].title}” or “${result.data.items[1].title}”?` : `I found “${result.data.items[0].title}.” What’s the reason for the return?`, state, [...events, trace('guardrail', 'Clarification required', result.data.items.length > 1 ? 'Multiple items require disambiguation' : 'A return reason is required', 'waiting')], { kind: 'order', order: result.data });
     }
 
-    return answer(`I found it — order ${result.data.id} is ${result.data.statusLabel.toLowerCase()} and expected ${result.data.eta}. The latest carrier scan shows it is moving on schedule.`, state, events, { kind: 'order', order: result.data });
+    return answer(`I found it — order ${result.data.id} ${orderStatusCopy(result.data)}.`, state, events, { kind: 'order', order: result.data });
   }
 
   if (/\b(return|refund|send .*back)\b/i.test(lower)) {
@@ -182,7 +188,7 @@ export function runDemoAgent(request: ChatRequest): ChatResponse {
     const order = state.activeOrderId ? getOrder(state.activeOrderId) : undefined;
     if (order) {
       events.push(trace('memory', 'Reused verified order', `${order.id} remained active in session memory`));
-      return answer(`Order ${order.id} is ${order.statusLabel.toLowerCase()} and expected ${order.eta}.`, state, events, { kind: 'order', order });
+      return answer(`Order ${order.id} ${orderStatusCopy(order)}.`, state, events, { kind: 'order', order });
     }
     state.awaiting = 'identity';
     events.push(trace('guardrail', 'Identity required', 'The agent chose to clarify instead of guessing', 'waiting'));
