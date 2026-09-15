@@ -79,7 +79,7 @@ Tests cover recommendation ranking and stock checks, customer linkage, write pay
 
 ## Deliberate scope choices
 
-- No cart was added. The supplied base has no cart system of record, and a fake cart would weaken the proof. Recommendations demonstrate revenue intent; the live complaint write demonstrates trusted action.
+- The recommendation cards include a session-only cart to demonstrate discovery-to-conversion intent. It is deliberately not presented as durable checkout because the supplied base has no cart system of record.
 - No Streamlit layer was added. React is the customer experience; the repository already provides the code-review surface the interview requires.
 - A deterministic orchestrator is used for the evaluated path. A production language model can select among the same narrow tools, but authorization and validation remain application code.
 - Book covers use a neutral fallback because the supplied catalog has no authoritative cover-image field.
