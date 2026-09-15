@@ -188,6 +188,29 @@ button, input { font: inherit; }
 .trace-step strong { display: block; color: #f3f4ef; font-size: 12px; font-weight: 650; }
 .trace-step small { display: block; margin-top: 3px; color: #919991; font-size: 11px; line-height: 1.45; }
 
+.aop-summary {
+  border: 1px solid rgba(251, 191, 36, .14);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(251, 191, 36, .065), rgba(255,255,255,.02));
+  padding: 15px;
+}
+
+.aop-timeline { margin: 0; padding: 0; list-style: none; }
+.aop-step { position: relative; display: flex; gap: 11px; padding: 0 0 13px; }
+.aop-step:last-child { padding-bottom: 0; }
+.aop-step:not(:last-child)::after { content: ""; position: absolute; left: 12px; top: 25px; bottom: 0; width: 1px; background: rgba(255,255,255,.11); }
+.aop-marker { position: relative; z-index: 1; display: grid; place-items: center; width: 25px; height: 25px; flex: none; border: 1px solid rgba(255,255,255,.13); border-radius: 50%; color: #737c74; background: #202722; font-size: 9px; font-weight: 700; }
+.aop-step p { margin: 2px 0 0; color: #a1a8a1; font-size: 11px; font-weight: 650; }
+.aop-step small { display: block; margin-top: 2px; color: #747d75; font-size: 10px; line-height: 1.4; }
+.aop-complete .aop-marker { border-color: rgba(52, 211, 153, .35); color: #6ee7b7; background: rgba(16, 185, 129, .11); }
+.aop-complete p { color: #edf2ec; }
+.aop-complete small { color: #98a099; }
+.aop-active .aop-marker { border-color: rgba(251, 191, 36, .42); color: #f7ce70; background: rgba(251, 191, 36, .11); box-shadow: 0 0 0 4px rgba(251, 191, 36, .045); }
+.aop-active p { color: #f8e1a5; }
+.aop-active small { color: #a9a38f; }
+.aop-blocked .aop-marker { border-color: rgba(248, 113, 113, .4); color: #fca5a5; background: rgba(248, 113, 113, .09); }
+.aop-blocked p { color: #fecaca; }
+
 .event-card {
   display: flex;
   gap: 10px;

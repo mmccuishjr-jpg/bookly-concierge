@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import {
-  AlertTriangle, ArrowRight, ArrowUp, BookHeart, BookOpen, Bot, Check,
+  AlertTriangle, ArrowRight, ArrowUp, BookHeart, BookOpen, Check,
   CircleDot, Clock3, Code2, Database, ExternalLink, LockKeyhole, MessageSquareWarning,
-  LogOut, Mail, PackageCheck, RefreshCcw, ShieldCheck, ShoppingCart, Sparkles, Truck, UserRound, Wrench,
+  LogOut, Mail, PackageCheck, RefreshCcw, ShieldCheck, ShoppingCart, Sparkles, Truck, UserRound,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +26,6 @@ const starters = [
   { icon: PackageCheck, label: 'Check latest order', prompt: 'Where is my latest order?' },
   { icon: MessageSquareWarning, label: 'Report a problem', prompt: 'I need to report a problem.' },
 ];
-const traceIcons: Record<TraceEvent['category'], typeof CircleDot> = {
-  intent: Sparkles, memory: Database, tool: Wrench, guardrail: ShieldCheck, response: Bot,
-};
-
 function currency(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 }
@@ -73,17 +69,120 @@ function ResultCard({ card, onAction, cartIds, onAddToCart }: { card: ContentCar
   return null;
 }
 
-function Inspector({ trace, state, busy }: { trace: TraceEvent[]; state: SessionState; busy: boolean }) {
-  const memory = [
-    state.customerName ? { label: 'Signed-in customer', value: state.customerName } : null,
-    state.customerId ? { label: 'Customer ID', value: state.customerId } : null,
-    state.dataSource ? { label: 'System of record', value: 'Airtable' } : null,
-    state.activeOrderId ? { label: 'Active order', value: state.activeOrderId } : null,
-    state.pendingComplaint ? { label: 'Complaint draft', value: 'Awaiting confirmation' } : null,
-  ].filter(Boolean) as Array<{ label: string; value: string }>;
-  return <aside className="inspector-shell lg:min-h-[calc(100vh-122px)]" aria-label="Agent inspector"><div className="flex items-start justify-between border-b border-white/10 px-5 py-5"><div><p className="eyebrow-dark">Evaluator view</p><h2 className="mt-1 font-heading text-lg font-semibold tracking-tight">Agent Inspector</h2></div><span className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300"><span className={`size-1.5 rounded-full bg-emerald-300 ${busy ? 'animate-pulse' : ''}`} /> {busy ? 'Working' : 'Ready'}</span></div><div className="inspector-scroll space-y-5 px-5 py-5">
-    {trace.length === 0 ? <><p className="text-sm leading-6 text-[#a9ada8]">Start a conversation to see intent, Airtable reads and writes, memory, and guardrail decisions.</p><div className="trace-card"><div className="trace-step"><span>1</span><p><strong>Understand</strong><small>Interpret intent and ask for missing context</small></p></div><div className="trace-step"><span>2</span><p><strong>Ground</strong><small>Read the signed-in customer’s Airtable records</small></p></div><div className="trace-step"><span>3</span><p><strong>Act</strong><small>Use narrow tools only after confirmation</small></p></div></div></> : <div><p className="eyebrow-dark mb-3">Latest agent turn</p><div className="space-y-2.5">{trace.map((event, index) => { const Icon = traceIcons[event.category]; return <div key={event.id} className={`event-card event-${event.status}`}><div className="event-icon"><Icon className="size-3.5" /></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold text-[#f1f3ee]">{event.title}</p><span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#747d75]">0{index + 1}</span></div><p className="mt-1 text-[11px] leading-[1.55] text-[#a6ada6]">{event.summary}</p>{event.detail && <code className="mt-2 block overflow-x-auto rounded-lg bg-black/20 px-2.5 py-2 text-[9px] leading-4 text-[#b8c0b8]">{event.detail}</code>}</div></div>; })}</div></div>}
-    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><div className="flex items-center justify-between"><p className="eyebrow-dark">Session memory</p><LockKeyhole className="size-3.5 text-[#737b73]" /></div><dl className="mt-3 space-y-2.5">{memory.map((item) => <div key={item.label} className="flex items-center justify-between gap-3 text-[11px]"><dt className="text-[#858e86]">{item.label}</dt><dd className="font-mono text-[#d8ddd7]">{item.value}</dd></div>)}</dl></div><div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><p className="eyebrow-dark">Architecture thesis</p><blockquote className="mt-2 text-[13px] leading-6 text-[#e6e8e3]">The model interprets. Deterministic server tools establish truth and control every action.</blockquote></div></div></aside>;
+type AopStepStatus = 'complete' | 'active' | 'pending' | 'blocked';
+type AopStep = { label: string; detail: string; status: AopStepStatus };
+
+function hasTrace(trace: TraceEvent[], title: string, status?: TraceEvent['status']) {
+  return trace.some((event) => event.title === title && (!status || event.status === status));
+}
+
+function buildAopView(trace: TraceEvent[], state: SessionState, busy: boolean) {
+  const pending = (label: string, detail: string): AopStep => ({ label, detail, status: 'pending' });
+  const complete = (label: string, detail: string): AopStep => ({ label, detail, status: 'complete' });
+  const active = (label: string, detail: string): AopStep => ({ label, detail, status: busy ? 'active' : 'active' });
+  const blocked = (label: string, detail: string): AopStep => ({ label, detail, status: 'blocked' });
+
+  if (!state.intent) {
+    return {
+      name: 'Awaiting procedure',
+      entry: 'No customer intent has matched an entry condition yet.',
+      status: busy ? 'Evaluating' : 'Listening',
+      tools: [] as string[],
+      steps: [
+        complete('Customer context resolved', `${state.customerName || 'Signed-in customer'} is scoped to ${state.customerId || 'the active session'}`),
+        active('Evaluate entry conditions', 'Listen for a supported customer request'),
+        pending('Select an AOP', 'Choose the procedure that matches the customer’s intent'),
+        pending('Follow the procedure', 'Clarify, retrieve data, or act only as the selected AOP allows'),
+      ],
+    };
+  }
+
+  if (state.intent === 'recommendation') {
+    const awaitingPreference = state.awaiting === 'recommendation_preferences';
+    const retrievalBlocked = hasTrace(trace, 'get_recommendations', 'blocked');
+    const retrievalComplete = hasTrace(trace, 'get_recommendations', 'complete');
+    return {
+      name: 'Personalized book discovery',
+      entry: 'Customer asks Bookly to recommend or find a book.',
+      status: awaitingPreference ? 'Waiting for preference' : retrievalBlocked ? 'Stopped safely' : retrievalComplete ? 'Complete' : 'Running',
+      tools: ['get_customer_profile', 'get_recommendations'],
+      steps: [
+        complete('Customer context resolved', `${state.customerName || 'Signed-in customer'} loaded from Airtable`),
+        complete('Entry condition matched', 'Recommendation intent detected from the customer message'),
+        complete('AOP selected', 'Personalized book discovery procedure is active'),
+        awaitingPreference ? active('Clarify current preference', 'Ask for a genre or mood, or permission to use reading history') : complete('Preference established', 'Use the customer’s stated preference or approved reading context'),
+        awaitingPreference ? pending('Apply eligibility guardrails', 'Require approved, display-eligible, in-stock recommendations') : complete('Eligibility guardrails passed', 'Filter for approved, display-eligible, in-stock matches'),
+        awaitingPreference ? pending('Retrieve eligible matches', 'Call get_recommendations with customer-scoped context') : retrievalBlocked ? blocked('Recommendation tool stopped', 'No eligible match passed every required check') : complete('Eligible matches retrieved', 'Read customer-scoped recommendations from Airtable'),
+        awaitingPreference || retrievalBlocked ? pending('Return grounded response', 'Present only results returned by the approved tool') : complete('Grounded response returned', 'Show eligible matches with details and a session cart action'),
+      ],
+    };
+  }
+
+  if (state.intent === 'support_case' || state.intent === 'human_support') {
+    const collecting = state.awaiting === 'complaint_details';
+    const confirming = state.awaiting === 'complaint_confirmation';
+    const created = hasTrace(trace, 'create_support_case', 'complete');
+    const writeBlocked = trace.some((event) => event.category === 'guardrail' && event.status === 'blocked');
+    return {
+      name: 'Support case creation',
+      entry: 'Customer reports a problem or requests a specialist.',
+      status: collecting ? 'Collecting details' : confirming ? 'Awaiting confirmation' : created ? 'Complete' : writeBlocked ? 'Stopped safely' : 'Running',
+      tools: ['create_support_case'],
+      steps: [
+        complete('Customer context resolved', `${state.customerName || 'Signed-in customer'} linked to the active session`),
+        complete('Entry condition matched', 'Complaint or human-support intent detected'),
+        complete('AOP selected', 'Support case creation procedure is active'),
+        collecting ? active('Collect case details', 'Ask what happened and what resolution the customer wants') : complete('Case details captured', 'Store a concise complaint draft in session memory'),
+        collecting ? pending('Validate action guardrails', 'Check customer scope, write preconditions, and idempotency') : complete('Action guardrails validated', 'Prepare a customer-scoped, idempotent write'),
+        collecting ? pending('Request confirmation', 'Show the draft before any durable action') : confirming ? active('Await explicit confirmation', 'Do not write until the customer clearly approves') : complete('Customer confirmation received', 'The customer explicitly authorized case creation'),
+        collecting || confirming ? pending('Create Support Case', 'Call create_support_case only after confirmation') : writeBlocked ? blocked('Write stopped safely', 'A guardrail prevented an unsafe or incomplete action') : complete('Support Case created', 'Write the linked record to Airtable'),
+        created ? complete('Return Case ID', 'Confirm the durable result without promising a refund') : pending('Return verified result', 'Report success only after Airtable confirms the write'),
+      ],
+    };
+  }
+
+  if (state.intent === 'order_status') {
+    const found = hasTrace(trace, 'get_recent_orders', 'complete');
+    return {
+      name: 'Order status',
+      entry: 'Customer asks about an order, package, or delivery.',
+      status: found ? 'Complete' : 'Running',
+      tools: ['get_recent_orders'],
+      steps: [
+        complete('Customer context resolved', 'Load the signed-in customer from Airtable'),
+        complete('Entry condition matched', 'Order-status intent detected'),
+        complete('AOP selected', 'Order status procedure is active'),
+        found ? complete('Order retrieved', 'Read the most recent matching order from Airtable') : active('Retrieve order', 'Call get_recent_orders with customer-scoped context'),
+        found ? complete('Grounded response returned', 'Report only the status returned by Airtable') : pending('Return grounded response', 'Do not guess when no trusted record is available'),
+      ],
+    };
+  }
+
+  const policyFound = hasTrace(trace, 'get_policy', 'complete');
+  return {
+    name: 'Policy answer',
+    entry: 'Customer asks about an approved Bookly policy.',
+    status: policyFound ? 'Complete' : 'Running',
+    tools: ['get_policy'],
+    steps: [
+      complete('Customer context resolved', 'Load the signed-in customer from Airtable'),
+      complete('Entry condition matched', 'Policy intent detected'),
+      complete('AOP selected', 'Approved policy answer procedure is active'),
+      policyFound ? complete('Approved policy retrieved', 'Read the matching active policy from Airtable') : active('Retrieve approved policy', 'Search the connected policy source'),
+      policyFound ? complete('Grounded response returned', 'Answer from the approved policy record') : pending('Return grounded response', 'Escalate rather than invent missing policy'),
+    ],
+  };
+}
+
+function AopExecution({ trace, state, busy }: { trace: TraceEvent[]; state: SessionState; busy: boolean }) {
+  const aop = buildAopView(trace, state, busy);
+  const statusTone = aop.status === 'Stopped safely' ? 'text-red-300 border-red-400/20 bg-red-400/10' : aop.status === 'Complete' ? 'text-emerald-300 border-emerald-400/20 bg-emerald-400/10' : 'text-amber-200 border-amber-300/20 bg-amber-300/10';
+  return <aside className="inspector-shell lg:min-h-[calc(100vh-122px)]" aria-label="AOP execution"><div className="flex items-start justify-between border-b border-white/10 px-5 py-5"><div><p className="eyebrow-dark">Evaluator view</p><h2 className="mt-1 font-heading text-lg font-semibold tracking-tight">AOP Execution</h2></div><span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusTone}`}><span className={`size-1.5 rounded-full ${busy ? 'animate-pulse' : ''} ${aop.status === 'Stopped safely' ? 'bg-red-300' : aop.status === 'Complete' ? 'bg-emerald-300' : 'bg-amber-200'}`} /> {busy ? 'Running' : aop.status}</span></div><div className="inspector-scroll px-5 py-5">
+    <section className="aop-summary"><div className="flex items-center gap-2"><Sparkles className="size-3.5 text-amber-200" /><p className="eyebrow-dark">Active procedure</p></div><h3 className="mt-2 text-sm font-semibold text-[#f3f4ef]">{aop.name}</h3><p className="mt-2 text-[11px] leading-[1.55] text-[#a6ada6]"><strong className="font-semibold text-[#d7dcd6]">Entry condition:</strong> {aop.entry}</p></section>
+    <section className="mt-5"><div className="mb-3 flex items-center justify-between"><p className="eyebrow-dark">Procedure progress</p><span className="text-[9px] uppercase tracking-[0.11em] text-[#737b73]">Ordered execution</span></div><ol className="aop-timeline">{aop.steps.map((step, index) => <li key={`${aop.name}-${step.label}`} className={`aop-step aop-${step.status}`}><span className="aop-marker" aria-label={`${step.status}: step ${index + 1}`}>{step.status === 'complete' ? <Check className="size-3.5" /> : step.status === 'blocked' ? <AlertTriangle className="size-3.5" /> : step.status === 'active' ? <CircleDot className="size-3.5" /> : index + 1}</span><div><p>{step.label}</p><small>{step.detail}</small></div></li>)}</ol></section>
+    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.035] p-4"><div className="flex items-center justify-between"><p className="eyebrow-dark">Procedure controls</p><ShieldCheck className="size-3.5 text-[#869087]" /></div><dl className="mt-3 space-y-2.5 text-[11px]"><div className="flex items-start justify-between gap-3"><dt className="text-[#858e86]">Customer scope</dt><dd className="text-right font-mono text-[#d8ddd7]">{state.customerId || 'Pending'}</dd></div><div className="flex items-start justify-between gap-3"><dt className="text-[#858e86]">System of record</dt><dd className="text-right font-mono text-[#d8ddd7]">Airtable</dd></div><div><dt className="text-[#858e86]">Referenced tools</dt><dd className="mt-2 flex flex-wrap gap-1.5">{aop.tools.length ? aop.tools.map((tool) => <code key={tool} className="rounded-md bg-black/20 px-2 py-1 text-[9px] text-[#cbd2cb]">{tool}</code>) : <span className="text-[10px] text-[#7f8880]">Selected after an AOP matches</span>}</dd></div></dl></section>
+    <p className="mt-4 flex items-start gap-2 text-[10px] leading-4 text-[#818a82]"><LockKeyhole className="mt-0.5 size-3 flex-none" /> The AOP guides the procedure. Server-side tools establish truth and control durable actions.</p>
+  </div></aside>;
 }
 
 function WelcomeExperience({ onContinue }: { onContinue: (identifier: string) => Promise<void> }) {
@@ -185,5 +284,5 @@ export function SupportExperience() {
     <section id="support" className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-7"><article className="support-shell flex min-h-[calc(100vh-122px)] flex-col overflow-hidden"><div className="border-b border-border/75 px-5 py-4 sm:px-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="mb-1 flex items-center gap-2"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" /><span className="text-xs font-medium text-muted-foreground">Signed in as Mara · Live Airtable data</span></div><h1 className="font-heading text-2xl font-semibold tracking-[-0.035em] sm:text-[30px]">Bookly Concierge</h1></div><Badge variant="secondary" className="h-7 gap-1.5 rounded-full bg-[#f1eee7] px-3 text-[#625d55]"><Sparkles className="size-3.5" /> Support + discovery</Badge></div></div>
       <div className="chat-scroll flex-1 px-5 py-6 sm:px-8" aria-live="polite"><div className="mx-auto w-full max-w-[760px] space-y-6">{messages.map((message) => <div key={message.id} className={`flex gap-3.5 ${message.role === 'user' ? 'justify-end' : ''}`}>{message.role === 'assistant' && <div className="assistant-avatar"><BookOpen className="size-4" /></div>}<div className={`${message.role === 'user' ? 'max-w-[78%]' : 'max-w-[650px]'} min-w-0`}><p className={`mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground ${message.role === 'user' ? 'text-right' : ''}`}>{message.role === 'assistant' ? 'Bookly' : 'You'}</p><div className={message.role === 'assistant' ? 'assistant-bubble' : 'user-bubble'}><p className="whitespace-pre-wrap text-[15px] leading-6">{message.content}</p></div>{message.card && <ResultCard card={message.card} onAction={sendMessage} cartIds={cartIds} onAddToCart={addToCart} />}</div>{message.role === 'user' && <div className="user-avatar"><UserRound className="size-4" /></div>}</div>)}{busy && <div className="flex gap-3.5"><div className="assistant-avatar"><BookOpen className="size-4" /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Bookly</p><div className="assistant-bubble flex h-12 items-center gap-1.5"><span className="typing-dot" /><span className="typing-dot [animation-delay:120ms]" /><span className="typing-dot [animation-delay:240ms]" /></div></div></div>}<div ref={endRef} /></div></div>
       <div className="border-t border-border/70 bg-[#fcfaf6]/95 px-5 py-4 sm:px-8"><div className="mx-auto w-full max-w-[760px]">{!hasConversation && <div className="mb-3 grid gap-2 sm:grid-cols-3" aria-label="Suggested questions">{starters.map(({ icon: Icon, label, prompt }) => <button key={label} onClick={() => void sendMessage(prompt)} className="starter-card" type="button"><Icon className="size-4 text-primary" /><span>{label}</span></button>)}</div>}{error && <div role="alert" className="mb-3 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700"><AlertTriangle className="size-4" /> {error}</div>}<form onSubmit={submit}><InputGroup className="h-14 rounded-2xl border-[#d8d2c7] bg-white pl-2 shadow-[0_8px_28px_rgba(46,39,29,.07)] focus-within:border-primary/50"><InputGroupInput value={input} onChange={(event) => setInput(event.target.value)} disabled={busy} aria-label="Message Bookly" placeholder="Ask about a book, order, or problem…" className="h-full text-[15px]" autoComplete="off" /><InputGroupAddon align="inline-end" className="pr-2"><InputGroupButton disabled={busy || !input.trim()} aria-label="Send message" type="submit" size="icon-sm" className="size-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"><ArrowUp className="size-4" /></InputGroupButton></InputGroupAddon></InputGroup></form><div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground"><p className="flex items-center gap-1.5"><ShieldCheck className="size-3" /> Writes require confirmation and are idempotent.</p><p className="font-mono">Demo customer · CUS-0001</p></div></div></div>
-    </article><Inspector trace={trace} state={session} busy={busy} /></section><footer className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-5 pb-7 text-[11px] text-muted-foreground sm:px-8"><p>Bookly is fictional. All customer and commerce data is synthetic.</p><p className="flex items-center gap-3"><span className="flex items-center gap-1"><Code2 className="size-3" /> TypeScript</span><span className="flex items-center gap-1"><Database className="size-3" /> Airtable system of record</span><span className="flex items-center gap-1"><ShieldCheck className="size-3" /> Server-side tools</span></p></footer></main>;
+    </article><AopExecution trace={trace} state={session} busy={busy} /></section><footer className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-5 pb-7 text-[11px] text-muted-foreground sm:px-8"><p>Bookly is fictional. All customer and commerce data is synthetic.</p><p className="flex items-center gap-3"><span className="flex items-center gap-1"><Code2 className="size-3" /> TypeScript</span><span className="flex items-center gap-1"><Database className="size-3" /> Airtable system of record</span><span className="flex items-center gap-1"><ShieldCheck className="size-3" /> Server-side tools</span></p></footer></main>;
 }
