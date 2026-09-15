@@ -160,7 +160,7 @@ export function buildSupportCaseFields({ customer, summary, transcript, idempote
     caseId,
     fields: {
       [supportCases.fields.caseId]: caseId,
-      [supportCases.fields.customerKey]: customer.id,
+      [supportCases.fields.customerKey]: [customer.recordId],
       [supportCases.fields.contactEmail]: customer.email,
       [supportCases.fields.openedAt]: now.toISOString(),
       [supportCases.fields.status]: 'Needs Human',

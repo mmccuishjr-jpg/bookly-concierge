@@ -30,7 +30,7 @@ void test('support case payload links the signed-in customer and carries an idem
   const now = new Date('2026-09-14T12:00:00.000Z');
   const result = buildSupportCaseFields({ customer, summary: 'A damaged book arrived.', transcript: 'Mara: A damaged book arrived.', idempotencyKey: 'abcd-1234', now });
   const fields = result.fields;
-  assert.equal(fields[AIRTABLE_SCHEMA.supportCases.fields.customerKey], 'CUS-0001');
+  assert.deepEqual(fields[AIRTABLE_SCHEMA.supportCases.fields.customerKey], ['recCustomer1']);
   assert.deepEqual(fields[AIRTABLE_SCHEMA.supportCases.fields.customer], ['recCustomer1']);
   assert.match(String(fields[AIRTABLE_SCHEMA.supportCases.fields.conversationState]), /abcd-1234/);
   assert.match(result.caseId, /^CASE-DEMO-20260914120000-ABCD$/);
