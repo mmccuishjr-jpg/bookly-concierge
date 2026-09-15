@@ -1,5 +1,5 @@
-import { runDemoAgent } from '@/lib/bookly/orchestrator';
-import { runOpenAIAgent } from '@/lib/bookly/openai-agent';
+import { runAirtableAgent } from '@/lib/bookly/airtable-orchestrator';
+import { isAirtableConfigured } from '@/lib/bookly/airtable';
 import type { ChatRequest } from '@/lib/bookly/types';
 
 export async function POST(request: Request) {
@@ -18,14 +18,15 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Message exceeds the 2,000 character limit.' }, { status: 413 });
   }
 
-  if (body.mode === 'live') {
-    try {
-      const live = await runOpenAIAgent(body);
-      if (live) return Response.json(live);
-    } catch {
-      return Response.json({ error: 'The live model is unavailable. Demo mode remains available.' }, { status: 503 });
-    }
+  if (!isAirtableConfigured()) {
+    return Response.json({ error: 'Airtable is not configured on the server.' }, { status: 503 });
   }
 
-  return Response.json(runDemoAgent(body));
+  try {
+    return Response.json(await runAirtableAgent(body));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown Airtable error';
+    console.error('Bookly Airtable request failed:', message);
+    return Response.json({ error: 'Bookly could not safely complete the Airtable request. No action was taken.' }, { status: 503 });
+  }
 }

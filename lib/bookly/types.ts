@@ -5,8 +5,36 @@ export type OrderItem = {
   title: string;
   author: string;
   price: number;
-  coverUrl: string;
+  coverUrl?: string;
   returnable: boolean;
+};
+
+export type CustomerProfile = {
+  recordId: string;
+  id: string;
+  name: string;
+  email: string;
+  favoriteGenres: string[];
+  readingProfile: string;
+  summary: string;
+  recommendationGate: string;
+  orderRecordIds: string[];
+};
+
+export type Recommendation = {
+  id: string;
+  productId: string;
+  title: string;
+  author: string;
+  genres: string[];
+  moods: string[];
+  description: string;
+  pitch: string;
+  price: number;
+  stock: number;
+  reasoning: string;
+  confidence: number;
+  rank: number;
 };
 
 export type Order = {
@@ -45,7 +73,20 @@ export type ReturnCard = {
   returnId?: string;
 };
 
-export type ContentCard = OrderCard | ReturnCard;
+export type RecommendationCard = {
+  kind: 'recommendations';
+  preference: string;
+  recommendations: Recommendation[];
+};
+
+export type SupportCaseCard = {
+  kind: 'case_proposal' | 'case_confirmation';
+  summary: string;
+  caseId?: string;
+  airtableRecordId?: string;
+};
+
+export type ContentCard = OrderCard | ReturnCard | RecommendationCard | SupportCaseCard;
 
 export type ChatMessage = {
   id: string;
@@ -55,12 +96,18 @@ export type ChatMessage = {
 };
 
 export type SessionState = {
-  intent?: 'order_status' | 'return_request' | 'policy_question' | 'human_support';
+  intent?: 'order_status' | 'return_request' | 'policy_question' | 'human_support' | 'recommendation' | 'support_case';
+  customerId?: string;
+  customerName?: string;
+  dataSource?: 'airtable';
   verifiedEmail?: string;
   activeOrderId?: string;
+  activeOrderRecordId?: string;
   selectedItemId?: string;
   returnReason?: string;
-  awaiting?: 'identity' | 'item' | 'reason' | 'confirmation';
+  pendingComplaint?: string;
+  complaintIdempotencyKey?: string;
+  awaiting?: 'identity' | 'item' | 'reason' | 'confirmation' | 'recommendation_preferences' | 'complaint_details' | 'complaint_confirmation';
   returnRecords: ReturnRecord[];
   attempts: number;
 };
@@ -85,5 +132,5 @@ export type ChatResponse = {
   message: ChatMessage;
   state: SessionState;
   trace: TraceEvent[];
-  engine: 'deterministic' | 'openai';
+  engine: 'deterministic' | 'openai' | 'airtable';
 };

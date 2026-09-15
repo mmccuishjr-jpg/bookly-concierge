@@ -1,80 +1,87 @@
-# Bookly Support
+# Bookly Concierge
 
-Bookly Support is a conversational customer-service prototype for a fictional online bookstore. It demonstrates multi-turn support, explicit tool use, scoped memory, intent clarification, policy grounding, and confirmation-gated write actions.
+Bookly is a customer-agent prototype for a fictional bookstore. It combines reliable support with proactive, evidence-backed book discovery: the same signed-in experience can check an order, capture a complaint, or recommend an in-stock book using the customer’s reading profile.
 
 ## Thesis
 
-> AI interprets the conversation. Deterministic tools establish truth and take action.
+> The model interprets the conversation. Deterministic server tools establish truth and control every action.
 
-The language layer may understand intent and decide what information is missing, but it cannot invent order data, policy, return eligibility, or confirmation IDs. Those come from explicit application tools.
+That separation is the central design choice. Conversation is flexible; identity, data access, eligibility, and writes are not.
 
-## Supported workflows
+## What the demo proves
 
-- Track an order after matching both order ID and checkout email.
-- Start a multi-turn return, disambiguate the item, capture a reason, check eligibility, and require explicit confirmation before creating it.
-- Answer shipping and account-access questions from approved policy content.
-- Escalate with retained context.
-- Fail closed on identity mismatch, tool failure, prompt injection, and duplicate writes.
+- A simulated signed-in customer, Mara Finch (`CUS-0001`), is resolved on the server rather than trusted from chat input.
+- Order, policy, customer, catalog, and recommendation data are read from Airtable.
+- Recommendations must be `Suggested`, display-eligible, unblocked, and currently in stock. Current preference is collected before historical taste is used.
+- A complaint becomes a draft first. Only explicit confirmation calls `create_support_case`.
+- Complaint creation writes a linked record to Airtable’s **Support Cases** table and returns its real Case ID.
+- A stored idempotency key prevents a repeated confirmation from creating a duplicate case.
+- Tool failures fail closed: the agent does not fabricate data or claim that an action succeeded.
+- The evaluator-facing Agent Inspector exposes sanitized intent, memory, tool, and guardrail events.
+
+## Architecture
+
+```text
+Customer in React UI
+        |
+        v
+POST /api/chat (server only)
+        |
+        +--> resolve signed-in Mara from Customers
+        +--> orchestrate the multi-turn workflow
+        +--> call one narrow Airtable tool
+                |-- get_customer_profile
+                |-- get_recommendations
+                |-- get_recent_orders
+                |-- get_policy
+                `-- create_support_case (confirmation required)
+        |
+        v
+Grounded response + sanitized trace
+```
+
+The browser never talks directly to Airtable and never receives the Airtable token. Table and field IDs are centralized in `lib/bookly/airtable-schema.ts`; transport lives in `lib/bookly/airtable.ts`; business rules and allowed fields live in `lib/bookly/airtable-tools.ts`; conversation state and action gating live in `lib/bookly/airtable-orchestrator.ts`.
 
 ## Run locally
 
 Requirements: Node.js 22.13+ and pnpm.
+
+1. Copy `.env.example` to `.env.local`.
+2. Add an Airtable Personal Access Token with `data.records:read` and `data.records:write`, restricted to the Bookly base.
+3. Run:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`. Never commit `.env.local` or place the token in client-side code.
 
-The deterministic demo is the default and needs no credentials. Try:
+## Best demo path
 
-- Order: `B-1042`
-- Email: `michael@example.com`
-- Failure-path order: `B-5000`
-
-## Optional live model
-
-The server includes a direct OpenAI Responses API tool-calling loop. Set `OPENAI_API_KEY` and `OPENAI_MODEL` from `.env.example`, then send API requests with `mode: "live"`. The UI stays in deterministic mode so the hosted evaluation path is reproducible and cannot fail because of credentials or model availability.
-
-No secret should ever be committed or sent to the browser.
-
-## Architecture
-
-```text
-Customer message
-    -> server-side orchestrator
-        -> intent / missing-information decision
-        -> session-scoped verified context
-        -> explicit Bookly tool
-            - find_order
-            - get_policy
-            - check_return_eligibility
-            - create_return
-        -> grounded response + sanitized execution trace
-```
-
-The Agent Inspector is intentionally evaluator-facing. A production customer interface would send the same trace to observability tooling rather than expose it in the support UI.
+1. Click **Find my next book** and answer with a genre or mood.
+2. Show the returned books and the inspector’s eligibility filters.
+3. Reset, click **Report a problem**, and describe the issue.
+4. Point out that the complaint is only a draft.
+5. Click **Create support case**.
+6. Open Airtable and show the new linked row in **Support Cases**.
 
 ## Quality checks
 
 ```bash
-pnpm test
+pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-The test suite covers identity matching, the complete multi-turn return flow, confirmation gating, duplicate-action protection, tool failure, and prompt-injection handling.
+Tests cover recommendation ranking and stock checks, customer linkage, write payloads, idempotency, confirmation gating, prompt injection, identity matching, return eligibility, and fail-closed behavior.
 
-## Interview deliverables
+## Deliberate scope choices
 
-- `deliverables/Bookly_Support_Case_Study_FINAL.pptx` — five-slide case-study deck with speaker notes.
-- `deliverables/DEMO_SCRIPT.md` — timed walkthrough, safety proof, and closing narrative.
-- `deliverables/SUBMISSION_CHECKLIST.md` — sharing and submission checks.
+- No cart was added. The supplied base has no cart system of record, and a fake cart would weaken the proof. Recommendations demonstrate revenue intent; the live complaint write demonstrates trusted action.
+- No Streamlit layer was added. React is the customer experience; the repository already provides the code-review surface the interview requires.
+- A deterministic orchestrator is used for the evaluated path. A production language model can select among the same narrow tools, but authorization and validation remain application code.
+- Book covers use a neutral fallback because the supplied catalog has no authoritative cover-image field.
 
-## Prototype tradeoffs
-
-- Synthetic in-memory data keeps the evaluation path safe and reproducible, but production would use authenticated order and returns APIs.
-- Session state is supplied by the client for demo visibility. Production would keep authoritative state server-side with signed session identity.
-- The deterministic engine makes every rubric behavior demonstrable. The optional live tool-calling path shows how the same tools plug into a model-driven loop.
-- The prototype uses one agent with narrow tools. Production would add evaluation, structured telemetry, rate limiting, PII retention controls, idempotency storage, and human-handoff integrations before adding more use cases.
+All Bookly data is synthetic. No real payment, refund, shipment, or customer-service action occurs.
