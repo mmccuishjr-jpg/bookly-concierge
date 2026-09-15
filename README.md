@@ -11,6 +11,7 @@ That separation is the central design choice. Conversation is flexible; identity
 ## What the demo proves
 
 - A simulated signed-in customer, Mara Finch (`CUS-0001`), is resolved on the server rather than trusted from chat input.
+- A demo entry screen accepts Mara’s exact full name or email and verifies it server-side against that one configured Airtable customer before opening the concierge.
 - Order, policy, customer, catalog, and recommendation data are read from Airtable.
 - Recommendations must be `Suggested`, display-eligible, unblocked, and currently in stock. Current preference is collected before historical taste is used.
 - A complaint becomes a draft first. Only explicit confirmation calls `create_support_case`.
@@ -23,6 +24,9 @@ That separation is the central design choice. Conversation is flexible; identity
 
 ```text
 Customer in React UI
+        |
+        v
+POST /api/demo-session (server verification)
         |
         v
 POST /api/chat (server only)
@@ -59,12 +63,13 @@ Open `http://localhost:3000`. Never commit `.env.local` or place the token in cl
 
 ## Best demo path
 
-1. Click **Find my next book** and answer with a genre or mood.
-2. Show the returned books and the inspector’s eligibility filters.
-3. Reset, click **Report a problem**, and describe the issue.
-4. Point out that the complaint is only a draft.
-5. Click **Create support case**.
-6. Open Airtable and show the new linked row in **Support Cases**.
+1. Enter **Mara Finch** on the welcome screen. Explain that this is a narrow simulation of identity resolution, not production authentication.
+2. Click **Find my next book** and answer with a genre or mood.
+3. Show the returned books and the inspector’s eligibility filters.
+4. Reset, click **Report a problem**, and describe the issue.
+5. Point out that the complaint is only a draft.
+6. Click **Create support case**.
+7. Open Airtable and show the new linked row in **Support Cases**.
 
 ## Quality checks
 
@@ -80,6 +85,7 @@ Tests cover recommendation ranking and stock checks, customer linkage, write pay
 ## Deliberate scope choices
 
 - The recommendation cards include a session-only cart to demonstrate discovery-to-conversion intent. It is deliberately not presented as durable checkout because the supplied base has no cart system of record.
+- The welcome screen is a server-validated demo gate for one synthetic Airtable customer, not a production authentication system. Production would use a real identity provider and a server-issued session.
 - No Streamlit layer was added. React is the customer experience; the repository already provides the code-review surface the interview requires.
 - A deterministic orchestrator is used for the evaluated path. A production language model can select among the same narrow tools, but authorization and validation remain application code.
 - Book covers use a neutral fallback because the supplied catalog has no authoritative cover-image field.

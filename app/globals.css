@@ -61,6 +61,26 @@ html { font-family: var(--font-sans-base); background: var(--background); }
 body { margin: 0; min-width: 320px; background: var(--background); }
 button, input { font: inherit; }
 
+.welcome-page {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 13% 18%, rgba(191, 74, 47, .11), transparent 29%),
+    radial-gradient(circle at 87% 74%, rgba(47, 106, 60, .1), transparent 27%),
+    linear-gradient(135deg, #f7f2e9 0%, #f3eee5 48%, #ece7dd 100%);
+}
+.welcome-page::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: .22;
+  background-image: linear-gradient(rgba(72, 60, 43, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(72, 60, 43, .08) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black, transparent 78%);
+}
+
+.welcome-card { backdrop-filter: blur(14px); }
+
 .support-shell {
   border: 1px solid rgba(196, 186, 170, .8);
   border-radius: 24px;

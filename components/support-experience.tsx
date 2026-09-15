@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import {
-  AlertTriangle, ArrowUp, BookHeart, BookOpen, Bot, Check, ChevronDown,
+  AlertTriangle, ArrowRight, ArrowUp, BookHeart, BookOpen, Bot, Check,
   CircleDot, Clock3, Code2, Database, ExternalLink, LockKeyhole, MessageSquareWarning,
-  PackageCheck, RefreshCcw, ShieldCheck, ShoppingCart, Sparkles, Truck, UserRound, Wrench,
+  LogOut, Mail, PackageCheck, RefreshCcw, ShieldCheck, ShoppingCart, Sparkles, Truck, UserRound, Wrench,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';
 import type { ChatMessage, ChatResponse, ContentCard, SessionState, TraceEvent } from '@/lib/bookly/types';
 
@@ -85,7 +86,56 @@ function Inspector({ trace, state, busy }: { trace: TraceEvent[]; state: Session
     <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><div className="flex items-center justify-between"><p className="eyebrow-dark">Session memory</p><LockKeyhole className="size-3.5 text-[#737b73]" /></div><dl className="mt-3 space-y-2.5">{memory.map((item) => <div key={item.label} className="flex items-center justify-between gap-3 text-[11px]"><dt className="text-[#858e86]">{item.label}</dt><dd className="font-mono text-[#d8ddd7]">{item.value}</dd></div>)}</dl></div><div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><p className="eyebrow-dark">Architecture thesis</p><blockquote className="mt-2 text-[13px] leading-6 text-[#e6e8e3]">The model interprets. Deterministic server tools establish truth and control every action.</blockquote></div></div></aside>;
 }
 
+function WelcomeExperience({ onContinue }: { onContinue: (identifier: string) => Promise<void> }) {
+  const [identifier, setIdentifier] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function submit(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!identifier.trim() || busy) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await onContinue(identifier);
+    } catch (caught) {
+      setError(caught instanceof Error && caught.message ? caught.message : 'Demo access is temporarily unavailable.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <main className="welcome-page min-h-screen bg-background text-foreground">
+    <header className="relative z-10 mx-auto flex h-20 max-w-[1180px] items-center justify-between px-5 sm:px-8">
+      <div className="flex items-center gap-2.5"><span className="brand-mark"><BookOpen aria-hidden="true" /></span><span className="font-heading text-2xl font-semibold tracking-[-0.035em]">Bookly</span></div>
+      <Badge variant="outline" className="rounded-full border-[#d7cfc2] bg-white/50 px-3 py-1.5 text-[11px] font-semibold text-[#625d55]"><ShieldCheck className="size-3.5 text-emerald-700" /> Demo access</Badge>
+    </header>
+    <section className="relative z-10 mx-auto grid min-h-[calc(100vh-128px)] max-w-[1180px] items-center gap-12 px-5 pb-16 pt-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="max-w-[610px]">
+        <p className="mb-5 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary"><Sparkles className="size-4" /> Your personal bookstore concierge</p>
+        <h1 className="font-heading text-5xl font-semibold leading-[.98] tracking-[-0.055em] sm:text-6xl lg:text-7xl">Welcome to<br />Bookly.</h1>
+        <p className="mt-6 max-w-[540px] text-lg leading-8 text-[#625d55]">Find your next great read, track an order, or get help when something goes wrong—all in one conversation.</p>
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-medium text-[#514a42]"><span className="flex items-center gap-2"><Check className="size-4 text-emerald-700" /> Personalized discovery</span><span className="flex items-center gap-2"><Check className="size-4 text-emerald-700" /> Live Airtable data</span><span className="flex items-center gap-2"><Check className="size-4 text-emerald-700" /> Confirmed support actions</span></div>
+      </div>
+      <div className="welcome-card rounded-[28px] border border-[#d9d0c3] bg-[#fffdfa]/95 p-6 shadow-[0_28px_80px_rgba(64,47,28,.13)] sm:p-8">
+        <div className="grid size-12 place-items-center rounded-2xl bg-[#f4e7df] text-primary"><UserRound className="size-5" /></div>
+        <h2 className="mt-6 font-heading text-[28px] font-semibold tracking-[-0.035em]">Continue to your account</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">Enter the full name or email associated with the demo customer.</p>
+        <form onSubmit={submit} className="mt-6">
+          <label htmlFor="demo-identifier" className="text-xs font-bold uppercase tracking-[0.1em] text-[#514a42]">Full name or email</label>
+          <div className="relative mt-2"><Mail className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input id="demo-identifier" value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="username" disabled={busy} aria-invalid={Boolean(error)} aria-describedby={error ? 'demo-error demo-hint' : 'demo-hint'} placeholder="Enter your full name or email" className="h-13 rounded-2xl border-[#d8d0c4] bg-white pl-11 pr-4 text-[15px] shadow-sm focus-visible:border-primary/60" /></div>
+          {error && <p id="demo-error" role="alert" className="mt-3 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-medium leading-5 text-red-700"><AlertTriangle className="mt-0.5 size-3.5 flex-none" /> {error}</p>}
+          <Button type="submit" disabled={busy || !identifier.trim()} className="mt-4 h-12 w-full rounded-2xl text-sm font-semibold shadow-[0_9px_24px_rgba(191,74,47,.18)]">{busy ? 'Verifying…' : <>Continue to Bookly <ArrowRight className="size-4" /></>}</Button>
+        </form>
+        <div id="demo-hint" className="mt-5 rounded-2xl border border-[#e2d9cc] bg-[#f6f1e9] px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Interview demo</p><p className="mt-1 text-sm text-[#514a42]">Use <button type="button" onClick={() => setIdentifier('Mara Finch')} className="font-semibold text-primary underline decoration-primary/35 underline-offset-4 hover:decoration-primary">Mara Finch</button> to enter the experience.</p></div>
+        <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground"><LockKeyhole className="size-3" /> Synthetic customer data · No real account access</p>
+      </div>
+    </section>
+  </main>;
+}
+
 export function SupportExperience() {
+  const [signedIn, setSignedIn] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
   const [session, setSession] = useState<SessionState>(initialState);
   const [trace, setTrace] = useState<TraceEvent[]>([]);
@@ -115,7 +165,23 @@ export function SupportExperience() {
   function addToCart(id: string) { setCartIds((current) => current.includes(id) ? current : [...current, id]); }
   function reset() { setMessages([initialMessage]); setSession(initialState); setTrace([]); setInput(''); setError(undefined); setCartIds([]); }
 
-  return <main className="min-h-screen bg-background text-foreground"><header className="border-b border-border/80 bg-background/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-5 sm:px-8"><div className="flex items-center gap-2.5"><span className="brand-mark"><BookOpen aria-hidden="true" /></span><span className="font-heading text-xl font-semibold tracking-[-0.03em]">Bookly</span></div><nav className="hidden items-center gap-7 text-sm text-muted-foreground sm:flex" aria-label="Primary navigation"><a href="#support" className="text-foreground">Concierge</a><span>My orders</span><button className="flex items-center gap-1 text-foreground" type="button"><span className="size-2 rounded-full bg-emerald-500" /> Mara Finch <ChevronDown className="size-3.5" /></button></nav><div className="flex items-center gap-2"><span className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-white/60 px-3 text-xs font-semibold" aria-live="polite"><ShoppingCart className="size-3.5" /> Cart {cartIds.length}</span><Button onClick={reset} variant="outline" size="sm" className="rounded-full bg-white/50"><RefreshCcw className="size-3.5" /> <span className="hidden sm:inline">Reset demo</span></Button></div></div></header>
+  async function verifyDemoCustomer(identifier: string) {
+    const response = await fetch('/api/demo-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier }) });
+    const result = await response.json() as { customer?: { id: string; name: string }; error?: string };
+    if (!response.ok || !result.customer) throw new Error(result.error || 'Demo access is temporarily unavailable.');
+    reset();
+    setSession((current) => ({ ...current, customerId: result.customer?.id, customerName: result.customer?.name }));
+    setSignedIn(true);
+  }
+
+  function signOut() {
+    reset();
+    setSignedIn(false);
+  }
+
+  if (!signedIn) return <WelcomeExperience onContinue={verifyDemoCustomer} />;
+
+  return <main className="min-h-screen bg-background text-foreground"><header className="border-b border-border/80 bg-background/95 backdrop-blur"><div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-5 sm:px-8"><div className="flex items-center gap-2.5"><span className="brand-mark"><BookOpen aria-hidden="true" /></span><span className="font-heading text-xl font-semibold tracking-[-0.03em]">Bookly</span></div><nav className="hidden items-center gap-7 text-sm text-muted-foreground sm:flex" aria-label="Primary navigation"><a href="#support" className="text-foreground">Concierge</a><span>My orders</span><button onClick={signOut} className="flex items-center gap-1.5 text-foreground hover:text-primary" type="button" title="Sign out of demo"><span className="size-2 rounded-full bg-emerald-500" /> Mara Finch <LogOut className="size-3.5" /></button></nav><div className="flex items-center gap-2"><span className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-white/60 px-3 text-xs font-semibold" aria-live="polite"><ShoppingCart className="size-3.5" /> Cart {cartIds.length}</span><Button onClick={reset} variant="outline" size="sm" className="rounded-full bg-white/50"><RefreshCcw className="size-3.5" /> <span className="hidden sm:inline">Reset demo</span></Button><Button onClick={signOut} variant="ghost" size="icon-sm" className="rounded-full sm:hidden" aria-label="Sign out of demo"><LogOut className="size-3.5" /></Button></div></div></header>
     <section id="support" className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-8 lg:py-7"><article className="support-shell flex min-h-[calc(100vh-122px)] flex-col overflow-hidden"><div className="border-b border-border/75 px-5 py-4 sm:px-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="mb-1 flex items-center gap-2"><span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,.12)]" /><span className="text-xs font-medium text-muted-foreground">Signed in as Mara · Live Airtable data</span></div><h1 className="font-heading text-2xl font-semibold tracking-[-0.035em] sm:text-[30px]">Bookly Concierge</h1></div><Badge variant="secondary" className="h-7 gap-1.5 rounded-full bg-[#f1eee7] px-3 text-[#625d55]"><Sparkles className="size-3.5" /> Support + discovery</Badge></div></div>
       <div className="chat-scroll flex-1 px-5 py-6 sm:px-8" aria-live="polite"><div className="mx-auto w-full max-w-[760px] space-y-6">{messages.map((message) => <div key={message.id} className={`flex gap-3.5 ${message.role === 'user' ? 'justify-end' : ''}`}>{message.role === 'assistant' && <div className="assistant-avatar"><BookOpen className="size-4" /></div>}<div className={`${message.role === 'user' ? 'max-w-[78%]' : 'max-w-[650px]'} min-w-0`}><p className={`mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground ${message.role === 'user' ? 'text-right' : ''}`}>{message.role === 'assistant' ? 'Bookly' : 'You'}</p><div className={message.role === 'assistant' ? 'assistant-bubble' : 'user-bubble'}><p className="whitespace-pre-wrap text-[15px] leading-6">{message.content}</p></div>{message.card && <ResultCard card={message.card} onAction={sendMessage} cartIds={cartIds} onAddToCart={addToCart} />}</div>{message.role === 'user' && <div className="user-avatar"><UserRound className="size-4" /></div>}</div>)}{busy && <div className="flex gap-3.5"><div className="assistant-avatar"><BookOpen className="size-4" /></div><div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Bookly</p><div className="assistant-bubble flex h-12 items-center gap-1.5"><span className="typing-dot" /><span className="typing-dot [animation-delay:120ms]" /><span className="typing-dot [animation-delay:240ms]" /></div></div></div>}<div ref={endRef} /></div></div>
       <div className="border-t border-border/70 bg-[#fcfaf6]/95 px-5 py-4 sm:px-8"><div className="mx-auto w-full max-w-[760px]">{!hasConversation && <div className="mb-3 grid gap-2 sm:grid-cols-3" aria-label="Suggested questions">{starters.map(({ icon: Icon, label, prompt }) => <button key={label} onClick={() => void sendMessage(prompt)} className="starter-card" type="button"><Icon className="size-4 text-primary" /><span>{label}</span></button>)}</div>}{error && <div role="alert" className="mb-3 flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700"><AlertTriangle className="size-4" /> {error}</div>}<form onSubmit={submit}><InputGroup className="h-14 rounded-2xl border-[#d8d2c7] bg-white pl-2 shadow-[0_8px_28px_rgba(46,39,29,.07)] focus-within:border-primary/50"><InputGroupInput value={input} onChange={(event) => setInput(event.target.value)} disabled={busy} aria-label="Message Bookly" placeholder="Ask about a book, order, or problem…" className="h-full text-[15px]" autoComplete="off" /><InputGroupAddon align="inline-end" className="pr-2"><InputGroupButton disabled={busy || !input.trim()} aria-label="Send message" type="submit" size="icon-sm" className="size-9 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"><ArrowUp className="size-4" /></InputGroupButton></InputGroupAddon></InputGroup></form><div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground"><p className="flex items-center gap-1.5"><ShieldCheck className="size-3" /> Writes require confirmation and are idempotent.</p><p className="font-mono">Demo customer · CUS-0001</p></div></div></div>
