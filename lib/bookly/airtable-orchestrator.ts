@@ -43,6 +43,19 @@ function complaintTranscript(request: ChatRequest, customer: CustomerProfile, su
   return [...history, `${customer.name}: ${summary}`].join('\n');
 }
 
+export function isRecommendationRequest(input: string) {
+  const lower = input.toLowerCase();
+  if (/\b(order|track|delivery|package|return|refund|damaged|complaint)\b/.test(lower)) return false;
+  const mentionsReading = /\b(book|books|read|reading)\b/.test(lower);
+  return mentionsReading && (
+    /\b(recommend(?:ation|ations)?|suggest(?:ion|ions)?|what should i read|read next)\b/.test(lower)
+    || /\b(looking|searching|browsing|shopping)\b.{0,40}\b(book|books|read|reading)\b/.test(lower)
+    || /\b(find|want|need)\b.{0,30}\b(new|next|another|good|great)?\s*\b(book|books|read)\b/.test(lower)
+    || /\b(new|next|another)\s+(book|read)\b/.test(lower)
+    || /\b(something|anything)\s+to\s+read\b/.test(lower)
+  );
+}
+
 export async function runAirtableAgent(request: ChatRequest): Promise<ChatResponse> {
   const customer = await getSignedInCustomer();
   const state = hydrateState(request, customer);
@@ -111,24 +124,26 @@ export async function runAirtableAgent(request: ChatRequest): Promise<ChatRespon
   }
 
   if (state.awaiting === 'recommendation_preferences') {
-    events.push(trace('intent', 'Book discovery', `Using the preference “${text.slice(0, 80)}”`));
-    const books = await getRecommendations(customer, text);
+    const useHistory = /\b(previous|past|history|orders?|profile|surprise me|you choose|no preference|anything|whatever)\b/i.test(text);
+    const preference = useHistory ? customer.favoriteGenres.join(' ') || customer.readingProfile : text;
+    const preferenceLabel = useHistory ? 'your previous orders and reading profile' : text;
+    events.push(trace('intent', 'Book discovery', useHistory ? 'Customer asked Bookly to use prior reading context' : `Using the preference “${text.slice(0, 80)}”`));
+    const books = await getRecommendations(customer, preference);
     events.push(trace('tool', 'get_recommendations', `Retrieved ${books.length} eligible, in-stock recommendations`, books.length ? 'complete' : 'blocked', JSON.stringify({ customerId: customer.id, filters: ['Suggested', 'Display Eligible', 'In stock', 'No blocking cases'], limit: 3 })));
     state.awaiting = undefined;
     if (!books.length) {
       return answer('I couldn’t find a recommendation that passes every eligibility check right now, so I won’t invent one. Try a different genre or mood.', state, events);
     }
-    return answer(`Based on your Bookly reading profile and your interest in ${text}, these are the strongest eligible matches. Each recommendation is in stock and grounded in your Airtable profile.`, state, events, { kind: 'recommendations', preference: text, recommendations: books });
+    return answer(`Based on ${preferenceLabel}, these are the strongest eligible matches. Each recommendation is in stock and grounded in your Airtable profile.`, state, events, { kind: 'recommendations', preference: preferenceLabel, recommendations: books });
   }
 
-  if (/\b(recommend|suggest|next book|what should i read|find .*book|book.*like)\b/i.test(lower)) {
+  if (isRecommendationRequest(text)) {
     state.intent = 'recommendation';
     state.awaiting = 'recommendation_preferences';
     events.push(trace('intent', 'Book discovery', 'Customer is asking for a personalized recommendation'));
     events.push(trace('tool', 'get_customer_profile', 'Read favorite genres and taste profile from Airtable', 'complete', JSON.stringify({ customerId: customer.id, favoriteGenres: customer.favoriteGenres })));
     events.push(trace('guardrail', 'Preference clarification', 'Asked for current intent instead of relying only on historical behavior', 'waiting'));
-    const examples = customer.favoriteGenres.slice(0, 3).join(', ');
-    return answer(`Absolutely. Your profile gives me useful context${examples ? ` — including ${examples}` : ''}, but I don’t want to assume. What genre or reading mood are you in today?`, state, events);
+    return answer('Absolutely — are you looking for any genres or moods in particular, or would you like me to use your previous orders and reading profile to guide the recommendations?', state, events);
   }
 
   if (/\b(complaint|complain|problem|issue|unhappy|upset|damaged|wrong book|bad experience|report)\b/i.test(lower)) {

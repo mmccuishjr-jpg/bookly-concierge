@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { buildSupportCaseFields, selectRecommendations } from '../lib/bookly/airtable-tools.ts';
+import { isRecommendationRequest } from '../lib/bookly/airtable-orchestrator.ts';
 import { AIRTABLE_SCHEMA } from '../lib/bookly/airtable-schema.ts';
 import type { CustomerProfile, Recommendation } from '../lib/bookly/types.ts';
 
@@ -33,4 +34,12 @@ void test('support case payload links the signed-in customer and carries an idem
   assert.deepEqual(fields[AIRTABLE_SCHEMA.supportCases.fields.customer], ['recCustomer1']);
   assert.match(String(fields[AIRTABLE_SCHEMA.supportCases.fields.conversationState]), /abcd-1234/);
   assert.match(result.caseId, /^CASE-DEMO-20260914120000-ABCD$/);
+});
+
+void test('natural book-discovery language reaches the recommendation workflow', () => {
+  assert.equal(isRecommendationRequest("I'm looking for a new book — any suggestions?"), true);
+  assert.equal(isRecommendationRequest('Could you suggest something to read?'), true);
+  assert.equal(isRecommendationRequest('I want another great book.'), true);
+  assert.equal(isRecommendationRequest('Where is my book order?'), false);
+  assert.equal(isRecommendationRequest('My book arrived damaged.'), false);
 });
